@@ -1,10 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Todo List App</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✅</text></svg>">
     <style>
         :root {
             --bg-color: #f3f4f6;
@@ -20,46 +25,92 @@
 
         body {
             background-color: var(--bg-color);
+            transition: background-color 0.3s ease;
+        }
+
+        .export-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+        }
+
+        .export-content {
+            position: relative;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: var(--card-bg);
+            padding: 2rem;
+            border-radius: 0.5rem;
+            width: 90%;
+            max-width: 300px;
         }
     </style>
 </head>
-<body class="min-h-screen transition-colors duration-300">
+
+<body class="min-h-screen">
+    <div id="exportModal" class="export-modal">
+        <div class="export-content">
+            <div class="text-center mb-4">
+                <h3 class="text-lg font-semibold mb-2">Export Tasks</h3>
+                <button onclick="closeExportModal()"
+                    class="absolute top-2 right-2 text-gray-500 hover:text-gray-700 dark:text-gray-300">
+                    ✕
+                </button>
+            </div>
+            <div class="flex flex-col gap-3">
+                <button onclick="exportAsPDF()"
+                    class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 transition-colors">
+                    PDF
+                </button>
+                <button onclick="exportAsImage()"
+                    class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors">
+                    Image
+                </button>
+            </div>
+        </div>
+    </div>
+
     <div class="container mx-auto px-4 py-8 max-w-2xl">
-        <!-- Theme Toggle -->
-        <div class="flex justify-end mb-4">
-            <button id="themeToggle" class="p-2 rounded-full bg-black/10 dark:bg-white/10 hover:bg-black/20 dark:hover:bg-white/20 transition-colors">
-                <svg id="sun" class="w-6 h-6 text-gray-800 dark:text-white hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707"/>
+        <div class="flex justify-between mb-4 gap-2">
+            <button id="themeToggle"
+                class="p-2 rounded-full bg-black/10 dark:bg-white/10 hover:bg-black/20 dark:hover:bg-white/20 transition-colors">
+                <svg id="sun" class="w-6 h-6 text-gray-800 dark:text-white hidden" fill="none" stroke="currentColor"
+                    viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707" />
                 </svg>
-                <svg id="moon" class="w-6 h-6 text-gray-800 dark:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+                <svg id="moon" class="w-6 h-6 text-gray-800 dark:text-white" fill="none" stroke="currentColor"
+                    viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
                 </svg>
+            </button>
+            <button onclick="openExportModal()"
+                class="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors text-sm md:text-base">
+                Download List
             </button>
         </div>
 
         <div class="bg-[var(--card-bg)] text-[var(--text-color)] rounded-lg shadow-xl p-6 backdrop-blur-lg">
-            <h1 class="text-3xl font-bold mb-6 text-center">Todo List</h1>
-            
-            <!-- Add Todo Form -->
+            <h1 class="text-2xl md:text-3xl font-bold mb-6 text-center">Todo List</h1>
+
             <div class="flex flex-col md:flex-row gap-4 mb-6">
-                <input 
-                    type="text" 
-                    id="todoInput" 
-                    placeholder="Add a new task..." 
-                    class="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-transparent"
-                >
-                <button 
-                    onclick="addTodo()" 
-                    class="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors"
-                >
+                <input type="text" id="todoInput" placeholder="Add a new task..."
+                    class="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-transparent text-sm md:text-base">
+                <button onclick="addTodo()"
+                    class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors text-sm md:text-base">
                     Add Task
                 </button>
             </div>
 
-            <!-- Todo List -->
             <ul id="todoList" class="space-y-2"></ul>
 
-            <!-- Statistics -->
             <div class="mt-6 pt-4 border-t border-gray-200 dark:border-gray-600">
                 <div class="flex justify-between text-sm">
                     <span>Total: <span id="totalTasks">0</span></span>
@@ -71,7 +122,7 @@
     </div>
 
     <script>
-        // Theme handling
+        // Theme Handling
         const themeToggle = document.getElementById('themeToggle');
         const sunIcon = document.getElementById('sun');
         const moonIcon = document.getElementById('moon');
@@ -89,13 +140,7 @@
             moonIcon.classList.toggle('hidden', isDark);
         }
 
-        // Load saved theme
-        const savedTheme = localStorage.getItem('theme') || 'light';
-        if (savedTheme === 'dark') body.classList.add('dark-mode');
-        updateIcons();
-        themeToggle.addEventListener('click', toggleTheme);
-
-        // Todo functionality
+        // Todo Functionality
         let todos = JSON.parse(localStorage.getItem('todos')) || [];
         const todoList = document.getElementById('todoList');
         const todoInput = document.getElementById('todoInput');
@@ -118,7 +163,7 @@
         }
 
         function toggleTodo(id) {
-            todos = todos.map(todo => 
+            todos = todos.map(todo =>
                 todo.id === id ? { ...todo, completed: !todo.completed } : todo
             );
             saveTodos();
@@ -140,20 +185,20 @@
             todos.forEach(todo => {
                 const li = document.createElement('li');
                 li.className = 'flex items-center justify-between p-3 bg-black/5 dark:bg-white/5 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 transition-colors';
-                
+
                 li.innerHTML = `
-                    <div class="flex items-center space-x-3">
+                    <div class="flex items-center space-x-3 flex-1">
                         <input 
                             type="checkbox" 
                             ${todo.completed ? 'checked' : ''} 
                             onchange="toggleTodo(${todo.id})" 
                             class="w-4 h-4 text-blue-500 rounded focus:ring-blue-500 bg-transparent"
                         >
-                        <span class="${todo.completed ? 'line-through text-gray-400' : ''}">${todo.text}</span>
+                        <span class="${todo.completed ? 'line-through text-gray-400' : ''} break-words flex-1 text-sm md:text-base">${todo.text}</span>
                     </div>
                     <button 
                         onclick="deleteTodo(${todo.id})" 
-                        class="text-red-500 hover:text-red-600"
+                        class="text-red-500 hover:text-red-600 ml-2"
                     >
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
@@ -169,11 +214,66 @@
             remainingTasks.textContent = todos.length - completed;
         }
 
-        // Initial render
+        // Export Functionality
+        function openExportModal() {
+            document.getElementById('exportModal').style.display = 'block';
+        }
+
+        function closeExportModal() {
+            document.getElementById('exportModal').style.display = 'none';
+        }
+
+        async function exportAsPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+
+            let yPos = 10;
+            doc.setFontSize(16);
+            doc.text("Todo List", 10, yPos);
+            yPos += 15;
+
+            doc.setFontSize(12);
+            todos.forEach((todo, index) => {
+                const text = `${index + 1}. ${todo.text} ${todo.completed ? '[✓]' : '[ ]'}`;
+                doc.text(text, 10, yPos);
+                yPos += 10;
+            });
+
+            doc.save('todo-list.pdf');
+            closeExportModal();
+        }
+
+        async function exportAsImage() {
+            const container = document.querySelector('.todo-container');
+            html2canvas(container).then(canvas => {
+                const link = document.createElement('a');
+                link.download = 'todo-list.png';
+                link.href = canvas.toDataURL();
+                link.click();
+            });
+            closeExportModal();
+        }
+
+        // Initial Setup
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        if (savedTheme === 'dark') body.classList.add('dark-mode');
+        updateIcons();
+        themeToggle.addEventListener('click', toggleTheme);
         renderTodos();
 
-        // Enter key handler
-        todoInput.addEventListener('keypress', (e) => e.key === 'Enter' && addTodo());
+        // Event Listeners
+        todoInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') addTodo();
+        });
+
+        // Close modal when clicking outside
+        window.onclick = function (event) {
+            const modal = document.getElementById('exportModal');
+            if (event.target === modal) {
+                closeExportModal();
+            }
+        }
     </script>
 </body>
+
 </html>
